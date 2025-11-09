@@ -109,6 +109,18 @@ Derived vtable[2] (func3): 0x7ff755c81550
 
 **Key Observations from the Output:**
 
+```
+Object Base
++----------------+  <-- basePtr
+| vptr        ---|----> +----------------+
++----------------+      | &Base::func1   |  <-- baseVtable[0]
+| baseData1      |      +----------------+
++----------------+      | &Base::func2   |  <-- baseVtable[1]
+| baseData2      |      +----------------+
++----------------+      | &Base::func3   |  <-- baseVtable[2]
+                        +----------------+
+```
+
 1. **Object Locations (Heap Memory)**:
 
    - Base object: `0x25D266B5460` - allocated on the heap via `new`
@@ -512,93 +524,21 @@ Bytes 20-23: 90 01 00 00
 
 ```
 Base Object (16 bytes on 64-bit):
-Offset  |  Content          |  Hex Bytes           |  Value
---------|-------------------|----------------------|------------------
+Offset  |  Content          |  Hex Bytes              |  Value
+--------|-------------------|-------------------------|------------------
 0-7     | vptr              | 30 bc df b6 f7 7f 00 00 | → Base vtable
-8-11    | baseData1 (int)   | 64 00 00 00          | 100 (decimal)
-12-15   | baseData2 (int)   | c8 00 00 00          | 200 (decimal)
+8-11    | baseData1 (int)   | 64 00 00 00             | 100 (decimal)
+12-15   | baseData2 (int)   | c8 00 00 00             | 200 (decimal)
 
 Derived Object (24 bytes on 64-bit):
-Offset  |  Content          |  Hex Bytes           |  Value
---------|-------------------|----------------------|------------------
+Offset  |  Content          |  Hex Bytes              |  Value
+--------|-------------------|-------------------------|------------------
 0-7     | vptr              | 58 bc df b6 f7 7f 00 00 | → Derived vtable
-8-11    | baseData1 (int)   | 64 00 00 00          | 100 (inherited)
-12-15   | baseData2 (int)   | c8 00 00 00          | 200 (inherited)
-16-19   | derivedData1      | 2c 01 00 00          | 300 (decimal)
-20-23   | derivedData2      | 90 01 00 00          | 400 (decimal)
+8-11    | baseData1 (int)   | 64 00 00 00             | 100 (inherited)
+12-15   | baseData2 (int)   | c8 00 00 00             | 200 (inherited)
+16-19   | derivedData1      | 2c 01 00 00             | 300 (decimal)
+20-23   | derivedData2      | 90 01 00 00             | 400 (decimal)
 ```
-
-**Complete VPtr → VTable → Function Diagram:**
-
-This diagram shows the complete relationship between objects, virtual pointers, virtual tables, and actual function code:
-
-```
-HEAP MEMORY (Objects)                 CODE/DATA SEGMENT (VTables)           CODE SEGMENT (Functions)
-══════════════════════                ════════════════════════════          ═══════════════════════
-
-Base Object @ 0x25D266B5460           Base VTable @ 0x7ff755c8bc30         
-┌─────────────────────┐               ┌──────────────────────────┐          ┌─────────────────────┐
-│ vptr                │──────────────→│ [0] func1 ptr            │─────────→│ Base::func1()       │
-│ 0x7ff755c8bc30      │               │     0x7ff755c81195       │          │ @ 0x7ff755c81195    │
-├─────────────────────┤               ├──────────────────────────┤          └─────────────────────┘
-│ baseData = 10       │               │ [1] func2 ptr            │─────────→┌─────────────────────┐
-└─────────────────────┘               │     0x7ff755c81474       │          │ Base::func2()       │
-                                      ├──────────────────────────┤          │ @ 0x7ff755c81474    │
-                                      │ [2] func3 ptr            │──┐       └─────────────────────┘
-                                      │     0x7ff755c81550       │  │      
-                                      ├──────────────────────────┤  │       ┌─────────────────────┐
-                                      │ [3] ~Base() ptr          │  │  ┌───→│ Base::func3()       │
-                                      └──────────────────────────┘  │  │    │ @ 0x7ff755c81550    │
-                                                                    │  │    └─────────────────────┘
-Derived Object @ 0x25D266B1A60        Derived VTable @ 0x7ff755c8bc88      │
-┌─────────────────────┐               ┌──────────────────────────┐  │       
-│ vptr                │──────────────→│ [0] func1 ptr            │─────────→┌─────────────────────┐
-│ 0x7ff755c8bc88      │               │     0x7ff755c81519       │          │ Derived::func1()    │
-├─────────────────────┤               ├──────────────────────────┤          │ @ 0x7ff755c81519    │
-│ baseData = 10       │               │ [1] func2 ptr            │─────────→└─────────────────────┘
-├─────────────────────┤               │     0x7ff755c811d6       │          ┌─────────────────────┐
-│ derivedData = 20    │               ├──────────────────────────┤          │ Derived::func2()    │
-└─────────────────────┘               │ [2] func3 ptr            │──────┘   │ @ 0x7ff755c811d6    │
-                                      │     0x7ff755c81550       │ (same!)  └─────────────────────┘
-                                      ├──────────────────────────┤          
-                                      │ [3] ~Derived() ptr       │          NOTE: Derived::func3
-                                      └──────────────────────────┘          uses Base's function!
-                                                                            No override = pointer reuse
-
-
-KEY INSIGHTS:
-═════════════
-
-1. Each object stores ONE vptr (8 bytes) pointing to its class's vtable
-2. Vtables are SHARED across all instances of a class (static, read-only memory)
-3. Overridden functions → Different addresses (Derived::func1 vs Base::func1)
-4. Inherited functions → Same address (both use Base::func3 @ 0x7ff755c81550)
-5. Virtual function call: Object → vptr → vtable[index] → actual function code
-```
-
-**How a Virtual Function Call Works:**
-
-When you write `derivedPtr->func1()`, here's what happens:
-
-```
-Step 1: Fetch vptr from object
-   derivedPtr (0x25D266B1A60)
-   ↓
-   Read first 8 bytes → vptr = 0x7ff755c8bc88
-
-Step 2: Index into vtable
-   vtable address: 0x7ff755c8bc88
-   func1 is at index [0]
-   ↓
-   vtable[0] = 0x7ff755c81519
-
-Step 3: Call the function
-   Jump to address 0x7ff755c81519
-   ↓
-   Execute Derived::func1() code
-```
-
-This two-level indirection (object → vtable → function) is what enables runtime polymorphism!
 
 **Visual Diagram:**
 
