@@ -2,11 +2,12 @@
 title: What If We Call main() in main()
 categories:
   - Programming
+tags:
+  - C++
 date: 2025-11-08 04:04:21
 ---
 
-
-I saw this question on TikTok and couldn't stop thinking - "What happens if you call `main()` inside `main()`?" It's one of those things you never think about until someone asks, and then you *have* to try it.
+I saw this question on TikTok and couldn't stop thinking - "What happens if you call `main()` inside `main()`?" It's one of those things you never think about until someone asks, and then you _have_ to try it.
 
 Turns out, it's a perfect example of how `main()` is just a function like any other, and what happens when you push recursion too far.
 
@@ -15,7 +16,6 @@ Turns out, it's a perfect example of how `main()` is just a function like any ot
 ## The Experiment
 
 In most programming languages, `main()` is the entry point of your program. But technically, it's just a function. So what stops us from calling it recursively?
-
 
 ### C/C++ - The Classic Example
 
@@ -29,17 +29,18 @@ int count = 0;
 int main() {
     count++;
     printf("Iteration %d: main() called\n", count);
-    
+
     if (count < 10) {
         main();  // Recursive call to main()
     }
-    
+
     printf("Returning from iteration %d\n", count);
     return 0;
 }
 ```
 
 **Output:**
+
 ```
 Iteration 1: main() called
 Iteration 2: main() called
@@ -64,6 +65,7 @@ Returning from iteration 10
 ```
 
 **What's happening?**
+
 - Each call to `main()` creates a new stack frame
 - Since `count` is **global**, it keeps incrementing across all calls
 - When recursion stops at count=10, all 10 stack frames unwind
@@ -116,6 +118,7 @@ if __name__ == "__main__":
 ```
 
 **Output:**
+
 ```
 Iteration 1
 Iteration 2
@@ -139,9 +142,8 @@ RecursionError after 18 calls
 Maximum recursion depth: 20
 ```
 
-**Why not 20 iterations?** 
+**Why not 20 iterations?**
 Python's recursion limit includes internal function calls too. The initial `if __name__ == "__main__"` check and the try-except block add to the call stack, so the actual limit for our recursive function is slightly less than 20.
-
 
 ## Key Takeaway
 
@@ -151,6 +153,4 @@ Calling `main()` recursively is problematic:
 2. **Stack overflow risk** - Without a base case, guaranteed crash
 3. **Poor code design** - Use a separate function if you need recursion
 
-
 `main()` is just another function. Like any function, recursive calls consume stack space. The stack is finite, so infinite recursion = stack overflow.
-
