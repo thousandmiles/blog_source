@@ -2,7 +2,6 @@
 title: Accelerating Code Analysis with CodeQL MCP Server
 date: 2025-11-23 00:00:00
 categories:
-  - Projects
   - AI
 tags:
   - MCP
